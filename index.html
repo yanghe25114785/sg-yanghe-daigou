@@ -751,7 +751,7 @@ function goToSeries(s) {
 
 // ── SERIES STRIP ──
 function buildSeriesStrip() {
-  const series = ['全部', ...new Set(GOODS.map(g => g.series)).filter(Boolean)]
+  const series = ['全部', ...[...new Set(GOODS.map(g => g.series))].filter(Boolean)]
   const strip = document.getElementById('series-strip')
   strip.innerHTML = series.map(s => `
     <button class="series-pill ${activeSeries === s ? 'active' : ''}" onclick="setSeries('${s}')">${s}</button>
