@@ -38,8 +38,8 @@ nav{background:var(--white);border-bottom:1px solid var(--border);position:stick
 .hero-tag{display:inline-block;background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.9);font-size:12px;letter-spacing:2px;padding:4px 14px;border-radius:24px;margin-bottom:16px;}
 .hero h1{font-family:'Noto Serif SC',serif;font-size:clamp(28px,6vw,44px);color:#fff;line-height:1.25;margin-bottom:12px;}
 .hero-sub{color:rgba(255,255,255,0.75);font-size:15px;max-width:380px;margin:0 auto 24px;line-height:1.6;}
-.hero-action-btns{display:flex;gap:12px;justify-content:center;margin-bottom:28px;flex-wrap:wrap;position:relative;z-index:10;}
-.hero-btn{padding:12px 28px;border-radius:50px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all 0.2s;position:relative;z-index:10;}
+.hero-action-btns{display:flex;gap:12px;justify-content:center;margin-bottom:28px;flex-wrap:wrap;}
+.hero-btn{padding:12px 28px;border-radius:50px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all 0.2s;}
 .hero-btn-primary{background:#fff;color:var(--red);}
 .hero-btn-primary:hover{background:rgba(255,255,255,0.9);transform:translateY(-2px);}
 .hero-btn-outline{background:rgba(255,255,255,0.12);color:#fff;border:1.5px solid rgba(255,255,255,0.4);}
@@ -193,8 +193,14 @@ nav{background:var(--white);border-bottom:1px solid var(--border);position:stick
 
 /* HOME grid */
 .home-cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;}
-.home-cat-card{background:var(--white);border-radius:var(--radius);padding:20px 12px;text-align:center;cursor:pointer;box-shadow:var(--shadow);transition:transform 0.2s,box-shadow 0.2s;}
+.home-cat-card{background:var(--white);border-radius:var(--radius);padding:20px 12px;text-align:center;cursor:pointer;box-shadow:var(--shadow);transition:transform 0.2s,box-shadow 0.2s;overflow:hidden;}
+.home-cat-card.has-img{padding:0 0 12px;}
 .home-cat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover);}
+.home-cat-img-wrap{width:100%;height:90px;overflow:hidden;margin-bottom:8px;}
+.home-cat-img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 0.3s;}
+.home-cat-card:hover .home-cat-img{transform:scale(1.06);}
+.home-cat-card.has-img .home-cat-name{padding:0 8px;}
+.home-cat-card.has-img .home-cat-count{padding:0 8px;}
 .home-cat-icon{font-size:36px;margin-bottom:8px;}
 .home-cat-name{font-size:13px;font-weight:600;color:var(--text);}
 .home-cat-count{font-size:11px;color:var(--text-3);margin-top:3px;}
@@ -398,6 +404,8 @@ let activeStock  = 'all'
 let currentGood  = null
 
 // ── LOAD ──
+let CAT_IMAGES = {}
+
 async function loadFromJsonbin() {
   try {
     const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`, {
@@ -409,11 +417,12 @@ async function loadFromJsonbin() {
     GOODS = r.goods || []
     if (r.config) CONFIG = {...CONFIG,...r.config}
     if (r.pages)  PAGES  = {...PAGES,...r.pages}
+    if (r.catImages) CAT_IMAGES = r.catImages
   } catch(e) { console.warn('JSONbin 加载失败',e) }
 }
 
 window.onload = async () => {
-  try { await loadFromJsonbin() } catch(e) { console.warn('JSONbin 加载失败',e) }
+  await loadFromJsonbin()
   // apply config
   if (CONFIG.subtitle) document.getElementById('hero-sub').textContent = CONFIG.subtitle
   document.getElementById('footer-wechat').textContent = CONFIG.wechatId
@@ -432,10 +441,8 @@ window.onload = async () => {
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'))
-  const page = document.getElementById('page-'+name)
-  const tab  = document.getElementById('tab-'+name)
-  if (page) page.classList.add('active')
-  if (tab)  tab.classList.add('active')
+  document.getElementById('page-'+name).classList.add('active')
+  document.getElementById('tab-'+name).classList.add('active')
   window.scrollTo(0,0)
 }
 function goHome() { showPage('home') }
@@ -447,13 +454,18 @@ function renderHome() {
   document.getElementById('stat-cats').textContent  = cats.length
   document.getElementById('stat-series').textContent = [...new Set(GOODS.map(g=>g.series).filter(Boolean))].length
 
-  const catIcons = {'二次元':'👾','化妆品':'💄','奢侈品':'👜','食品':'🍜','生活':'🏠','玩具':'🧸','文创':'✏️'}
-  document.getElementById('home-cat-grid').innerHTML = cats.map(c=>`
-    <div class="home-cat-card" onclick="goToCat('${c}')">
-      <div class="home-cat-icon">${catIcons[c]||'🛍️'}</div>
+  const catIcons = {'二次元':'🎌','化妆品':'💄','奢侈品':'👜','食品':'🍜','生活':'🏠','玩具':'🧸','文创':'✏️'}
+  document.getElementById('home-cat-grid').innerHTML = cats.map(c=>{
+    const img = CAT_IMAGES[c]
+    const cardInner = img
+      ? `<div class="home-cat-img-wrap"><img class="home-cat-img" src="${img}" alt="${c}"></div>`
+      : `<div class="home-cat-icon">${catIcons[c]||'🛍️'}</div>`
+    return `<div class="home-cat-card${img?' has-img':''}" onclick="goToCat('${c}')">
+      ${cardInner}
       <div class="home-cat-name">${c}</div>
       <div class="home-cat-count">${GOODS.filter(g=>g.category===c).length} 件</div>
-    </div>`).join('')
+    </div>`
+  }).join('')
 
   const latest = [...GOODS].sort((a,b)=>new Date(b.addedDate)-new Date(a.addedDate)).slice(0,4)
   document.getElementById('home-latest-grid').innerHTML = latest.map(g=>renderCard(g)).join('')
@@ -699,3 +711,4 @@ let _tt; function showToast(msg){const t=document.getElementById('toast');t.text
 </script>
 </body>
 </html>
+
