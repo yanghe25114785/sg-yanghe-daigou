@@ -153,7 +153,25 @@ td{padding:14px 16px;font-size:13px;vertical-align:middle;}
 .page-editor-textarea{width:100%;min-height:280px;padding:14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;line-height:1.8;resize:vertical;outline:none;background:#FAFAF9;}
 .page-editor-textarea:focus{border-color:var(--red);}
 
-/* LOADING */
+/* CAT MANAGER */
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px;}
+.cat-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;border:2px solid transparent;transition:border-color 0.2s;}
+.cat-card-img{width:100%;height:130px;object-fit:cover;display:block;background:var(--bg);}
+.cat-card-img-ph{width:100%;height:130px;display:flex;align-items:center;justify-content:center;font-size:48px;background:#F5F0EA;}
+.cat-card-body{padding:12px 14px;}
+.cat-card-name{font-size:14px;font-weight:700;margin-bottom:4px;}
+.cat-card-count{font-size:11px;color:var(--text-3);margin-bottom:10px;}
+.cat-card-actions{display:flex;gap:6px;}
+.cat-upload-btn{flex:1;padding:6px 0;border-radius:6px;font-size:12px;cursor:pointer;border:1.5px solid var(--red);background:var(--red-light);color:var(--red);font-family:inherit;font-weight:500;}
+.cat-del-btn{padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;border:1.5px solid var(--border);background:var(--white);color:var(--text-3);font-family:inherit;}
+.cat-del-btn:hover{border-color:#f5c0bc;color:var(--red);background:var(--red-light);}
+.cat-add-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;height:220px;cursor:pointer;transition:border-color 0.2s;}
+.cat-add-card:hover{border-color:var(--red);}
+.cat-add-icon{font-size:32px;color:var(--text-3);}
+.cat-add-label{font-size:13px;color:var(--text-3);}
+.cat-hint{font-size:13px;color:var(--text-3);margin-bottom:16px;line-height:1.7;background:var(--white);border-radius:var(--radius);padding:14px 18px;box-shadow:var(--shadow);}
+
+
 .loading-overlay{display:none;position:fixed;inset:0;background:rgba(255,255,255,0.75);z-index:300;align-items:center;justify-content:center;flex-direction:column;gap:12px;}
 .loading-overlay.show{display:flex;}
 .big-spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin 0.7s linear infinite;}
@@ -184,6 +202,9 @@ td{padding:14px 16px;font-size:13px;vertical-align:middle;}
   </div>
   <a class="nav-item active" onclick="showPage('goods')" href="#">
     <span class="nav-icon">📦</span><span>商品管理</span>
+  </a>
+  <a class="nav-item" onclick="showPage('categories')" href="#">
+    <span class="nav-icon">🗂️</span><span>品类管理</span>
   </a>
   <a class="nav-item" onclick="showPage('config')" href="#">
     <span class="nav-icon">⚙️</span><span>基本设置</span>
@@ -304,10 +325,15 @@ td{padding:14px 16px;font-size:13px;vertical-align:middle;}
       </div>
     </div>
 
-  </div>
-</div>
+    <!-- CATEGORIES -->
+    <div class="page" id="page-categories">
+      <div class="cat-hint">
+        💡 每个品类可以上传一张封面图，顾客在首页看到的品类卡片会显示这张图片。没有上传图片时会显示默认 emoji。
+      </div>
+      <div class="cat-grid" id="cat-grid"></div>
+    </div>
 
-<!-- GOODS MODAL -->
+
 <div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
   <div class="modal">
     <div class="modal-header">
@@ -485,13 +511,14 @@ function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('page-'+name).classList.add('active')
-  const titles={goods:'商品管理',config:'基本设置',pages:'页面内容',setup:'API 配置'}
+  const titles={goods:'商品管理',categories:'品类管理',config:'基本设置',pages:'页面内容',setup:'API 配置'}
   document.getElementById('topbar-title').textContent=titles[name]||''
-  const map={goods:0,config:1,pages:2,setup:3}
+  const map={goods:0,categories:1,config:2,pages:3,setup:4}
   const navs=document.querySelectorAll('.nav-item')
   if(map[name]!==undefined) navs[map[name]].classList.add('active')
   if(name==='config') loadConfigPage()
   if(name==='pages')  loadPagesEditor()
+  if(name==='categories') renderCatGrid()
 }
 
 // ── TABLE ──
@@ -693,6 +720,71 @@ async function savePageContent(key){
   finally{hideLoading()}
 }
 
+// ── CATEGORY IMAGES ──
+function getCatImages(){ return RECORD.catImages || {} }
+
+function renderCatGrid(){
+  const cats = [...new Set(GOODS.map(g=>g.category).filter(Boolean))]
+  const catImgs = getCatImages()
+  const grid = document.getElementById('cat-grid')
+  if(!cats.length){
+    grid.innerHTML=`<div style="color:var(--text-3);font-size:14px;grid-column:1/-1;padding:40px 0;text-align:center">还没有商品，请先在商品管理里添加商品，品类会自动出现在这里。</div>`
+    return
+  }
+  grid.innerHTML = cats.map(cat=>{
+    const img = catImgs[cat]
+    const count = GOODS.filter(g=>g.category===cat).length
+    const imgHtml = img
+      ? `<img class="cat-card-img" src="${img}" alt="${cat}">`
+      : `<div class="cat-card-img-ph">${getCatEmoji(cat)}</div>`
+    return `<div class="cat-card">
+      ${imgHtml}
+      <div class="cat-card-body">
+        <div class="cat-card-name">${cat}</div>
+        <div class="cat-card-count">${count} 件商品</div>
+        <div class="cat-card-actions">
+          <button class="cat-upload-btn" onclick="triggerCatUpload('${cat}')">📷 ${img?'更换图片':'上传图片'}</button>
+          ${img?`<button class="cat-del-btn" onclick="deleteCatImage('${cat}')">删除</button>`:''}
+        </div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+function getCatEmoji(cat){
+  const map={'二次元':'👾','化妆品':'💄','奢侈品':'👜','食品':'🍜','生活':'🏠','玩具':'🧸','文创':'✏️'}
+  return map[cat]||'🛍️'
+}
+
+function triggerCatUpload(cat){
+  const inp = document.createElement('input')
+  inp.type='file'; inp.accept='image/*'
+  inp.onchange = async ()=>{
+    const file = inp.files[0]; if(!file) return
+    if(!CFG.imgbbKey){toast('请先在 API 配置里填写 ImgBB Key','error');return}
+    showLoading('上传品类图片…')
+    try{
+      const url = await uploadImage(file)
+      if(!RECORD.catImages) RECORD.catImages={}
+      RECORD.catImages[cat] = url
+      await pushRecord(RECORD)
+      renderCatGrid()
+      toast(`✓ ${cat} 图片已更新`,'success')
+    }catch(e){ toast('上传失败：'+e.message,'error') }
+    finally{ hideLoading() }
+  }
+  inp.click()
+}
+
+async function deleteCatImage(cat){
+  if(!confirm(`确定删除「${cat}」的品类图片吗？`)) return
+  if(RECORD.catImages) delete RECORD.catImages[cat]
+  showLoading('删除中…')
+  try{ await pushRecord(RECORD); renderCatGrid(); toast('✓ 已删除','success') }
+  catch(e){ toast('删除失败：'+e.message,'error') }
+  finally{ hideLoading() }
+}
+
 // ── UTILS ──
 function setStatus(s){const el=document.getElementById('conn-status');if(s==='ok'){el.textContent='✓ 已连接';el.className='status-ok'}else if(s==='error'){el.textContent='✗ 连接失败';el.className='status-err'}else{el.textContent='连接中…';el.className='status-pending'}}
 let _tt;function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3000)}
@@ -701,3 +793,4 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
 </script>
 </body>
 </html>
+
