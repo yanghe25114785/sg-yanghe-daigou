@@ -447,7 +447,7 @@ function renderHome() {
   document.getElementById('stat-cats').textContent  = cats.length
   document.getElementById('stat-series').textContent = [...new Set(GOODS.map(g=>g.series).filter(Boolean))].length
 
-  const catIcons = {'二次元':'🎌','化妆品':'💄','奢侈品':'👜','食品':'🍜','生活':'🏠','玩具':'🧸','文创':'✏️'}
+  const catIcons = {'二次元':'👾','化妆品':'💄','奢侈品':'👜','食品':'🍜','生活':'🏠','玩具':'🧸','文创':'✏️'}
   document.getElementById('home-cat-grid').innerHTML = cats.map(c=>`
     <div class="home-cat-card" onclick="goToCat('${c}')">
       <div class="home-cat-icon">${catIcons[c]||'🛍️'}</div>
